@@ -20,9 +20,9 @@ import { OperationType } from "../../../common/api/common/TutanotaConstants"
 
 assertMainOrNode()
 
-type LoadedMail = {
-	mail: Mail
-	mailSetEntry: MailSetEntry
+interface LoadedMail {
+	mail: Readonly<Mail>
+	mailSetEntry: Readonly<MailSetEntry>
 }
 
 /** sort mail set mails in descending order (**reversed**: newest to oldest) according to their receivedDate, not their elementId */
