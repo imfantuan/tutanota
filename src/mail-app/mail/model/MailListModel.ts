@@ -2,9 +2,9 @@ import { ListFilter, ListModel } from "../../../common/misc/ListModel"
 import { Mail, MailFolder, MailFolderTypeRef, MailSetEntry, MailSetEntryTypeRef, MailTypeRef } from "../../../common/api/entities/tutanota/TypeRefs"
 import {
 	CUSTOM_MAX_ID,
-	customIdToUint8array,
 	deconstructMailSetEntryId,
 	elementIdPart,
+	firstBiggerThanSecond,
 	getElementId,
 	isSameId,
 	listIdPart,
@@ -12,7 +12,7 @@ import {
 import { EntityClient } from "../../../common/api/common/EntityClient"
 import { ConversationPrefProvider } from "../view/ConversationViewModel"
 import { assertMainOrNode } from "../../../common/api/common/Env"
-import { assertNotNull, compare } from "@tutao/tutanota-utils"
+import { assertNotNull } from "@tutao/tutanota-utils"
 import { ListLoadingState, ListState } from "../../../common/gui/base/List"
 import Stream from "mithril/stream"
 import { EntityUpdateData, isUpdateForTypeRef } from "../../../common/api/common/utils/EntityUpdateUtils"
@@ -23,6 +23,26 @@ assertMainOrNode()
 type LoadedMail = {
 	mail: Mail
 	mailSetEntry: MailSetEntry
+}
+
+/** sort mail set mails in descending order (**reversed**: newest to oldest) according to their receivedDate, not their elementId */
+export function sortCompareMailSetMailsReversed(firstMail: Mail, secondMail: Mail): number {
+	// First check the timestamp. Return the difference if there is any.
+	const timestampDifference = secondMail.receivedDate.getTime() - firstMail.receivedDate.getTime()
+	if (timestampDifference !== 0) {
+		return timestampDifference
+	}
+
+	// If timestamps are the same, the mail ID is the final deciding factor.
+	const firstMailElementId = getElementId(firstMail)
+	const secondMailElementId = getElementId(secondMail)
+	if (firstBiggerThanSecond(firstMailElementId, secondMailElementId)) {
+		return -1
+	} else if (firstBiggerThanSecond(secondMailElementId, firstMailElementId)) {
+		return 1
+	} else {
+		return 0
+	}
 }
 
 /**
@@ -52,14 +72,7 @@ export class MailListModel {
 
 			loadSingle: (listId, itemId) => this.loadSingleMail([listId, itemId]),
 
-			sortCompare: (item1, item2) => {
-				// Mail set entry ID has the timestamp and mail element ID
-				const item1Id = getElementId(item1.mailSetEntry)
-				const item2Id = getElementId(item2.mailSetEntry)
-
-				// Sort in reverse order to ensure newer mails are first
-				return compare(customIdToUint8array(item2Id), customIdToUint8array(item1Id))
-			},
+			sortCompare: (mail1, mail2) => sortCompareMailSetMailsReversed(mail1.mail, mail2.mail),
 
 			getItemId: (item) => getElementId(item.mailSetEntry),
 
